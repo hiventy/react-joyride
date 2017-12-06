@@ -476,7 +476,7 @@ class Joyride extends React.Component {
       msg: ['new index:', nextIndex],
       debug: this.props.debug,
     });
-    this.toggleTooltip({ show: shouldDisplay, index: nextIndex, action: 'next' });
+    this.toggleTooltip({ show: shouldDisplay, index: nextIndex, action: 'next', direction: 1 });
   }
 
   /**
@@ -494,7 +494,7 @@ class Joyride extends React.Component {
       msg: ['new index:', previousIndex],
       debug: this.props.debug,
     });
-    this.toggleTooltip({ show: shouldDisplay, index: previousIndex, action: 'next' });
+    this.toggleTooltip({ show: shouldDisplay, index: previousIndex, action: 'next', direction: -1 });
   }
 
   /**
@@ -794,7 +794,7 @@ class Joyride extends React.Component {
       }
       else if ([13, 32].indexOf(intKey) > -1) {
         hasSteps = Boolean(steps[index + 1]);
-        this.toggleTooltip({ show: hasSteps, index: index + 1, action: 'next' });
+        this.toggleTooltip({ show: hasSteps, index: index + 1, action: 'next', direction: 1 });
       }
     }
   };
@@ -898,7 +898,7 @@ class Joyride extends React.Component {
           && ['close', 'skip'].indexOf(dataType) === -1
           && Boolean(steps[newIndex]);
 
-        this.toggleTooltip({ show: shouldDisplay, index: newIndex, action: dataType });
+        this.toggleTooltip({ show: shouldDisplay, index: newIndex, action: dataType, direction: (dataType === 'back' ? -1 : 1) });
       }
 
       if (e.target.className === 'joyride-overlay') {
@@ -933,21 +933,32 @@ class Joyride extends React.Component {
    * @param {string} [options.action] - The action being undertaken.
    * @param {Array} [options.steps] - The array of step objects that is going to be rendered
    */
-  toggleTooltip({ show, index = this.state.index, action, steps = this.props.steps }) {
+  toggleTooltip({ show, index = this.state.index, action, steps = this.props.steps, direction }) {
     const nextStep = steps[index];
     const hasMountedTarget = Boolean(this.getStepTargetElement(nextStep));
-
-    this.setState({
-      action,
-      index,
-      // Stop playing if there is no next step or can't find the target
-      isRunning: (nextStep && hasMountedTarget) ? this.state.isRunning : false,
-      // If we are not showing now, or there is no target, we'll need to redraw eventually
-      shouldRedraw: !show || !hasMountedTarget,
-      shouldRenderTooltip: show && hasMountedTarget,
-      xPos: -1000,
-      yPos: -1000
-    });
+    const self = this;
+    let delay = (nextStep && nextStep.delay) || false;
+    if (delay && typeof (nextStep.delay) === 'object') delay = direction === 1 ? delay[0] : delay[1];
+    const setState = () => self.setState({
+            action,
+            index,
+            // Stop playing if there is no next step or can't find the target
+            isRunning: (nextStep && hasMountedTarget) ? self.state.isRunning : false,
+            // If we are not showing now, or there is no target, we'll need to redraw eventually
+            shouldRedraw: !show || !hasMountedTarget,
+            shouldRenderTooltip: delay ? false : show && hasMountedTarget,
+            xPos: -1000,
+            yPos: -1000
+          });
+    setState();
+    /* istanbul ignore else */
+    if (delay) {
+      setTimeout(() => {
+        self.setState({
+          shouldRenderTooltip: show && hasMountedTarget,
+        });
+      }, delay);
+    }
   }
 
   /**
